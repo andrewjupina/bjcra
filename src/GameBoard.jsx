@@ -16,6 +16,9 @@ const GameBoard = () => {
   const [isPlayersTurn, setIsPlayersTurn] = useState(false);
   const [winner, setWinner] = useState(null);
   const [isDealerCardHidden, setIsDealerCardHidden] = useState(true);
+  const [isGameStarted, setIsGameStarted] = useState(false);
+  const [gameOver, setIsGameOver] = useState(false);
+  const [isFirstHand, setIsFirstHand] = useState(true);
 
 
   useEffect(() => {
@@ -28,11 +31,40 @@ const GameBoard = () => {
     setDealerScore(newScore);
   }, [dealerHand, calculateHandValue]);
 
+  useEffect(() => {
+    if (!isPlayersTurn && isGameStarted && !gameOver) {
+      handleDealerTurn();
+    }
+  }, [isPlayersTurn]);
+
+  useEffect(() => {
+    let timeoutId;
+
+    if (gameOver || winner !== null) {
+      timeoutId = setTimeout(() => {
+        gameReset();
+      }, 3000);
+    }
+
+    return () => clearTimeout(timeoutId); // This is used to clear the timeout when the component unmounts, or when gameOver changes again before the 3 seconds are up.
+
+  }, [gameOver, winner]);
+
+  const gameReset = () => {
+    setPlayerHand([]);
+    setPlayerScore(0);
+    setDealerHand([]);
+    setDealerScore(0);
+    setIsPlayersTurn(false);
+    setWinner(null);
+    setIsDealerCardHidden(true);
+    setIsGameStarted(false);
+    setIsGameOver(false);
+  };
+
   // This function starts a new game
   const handleGameStart = () => {
-    setIsDealerCardHidden(true);
-    setWinner(null);
-    let newDeck = shuffleDeck(createDeck());
+    let newDeck = isFirstHand ? shuffleDeck(createDeck()) : deck;
     let dealtCard;
 
     [dealtCard, newDeck] = dealCard(newDeck);
@@ -52,24 +84,10 @@ const GameBoard = () => {
     setPlayerHand(playerHand);
     setDealerHand(dealerHand);
 
-    if (isBlackjack(playerHand) && !isBlackjack(dealerHand)) {
-      setIsDealerCardHidden(false);
-      setWinner('Player');
-      return;
-    }
-
-    if (isBlackjack(dealerHand) && !isBlackjack(playerHand)) {
-      setIsDealerCardHidden(false);
-      setWinner('Dealer');
-      return;
-    }
-
-    if (isBlackjack(playerHand) && isBlackjack(dealerHand)) {
-      setIsDealerCardHidden(false);
-      setWinner('Push');
-      return;
-    }
+    checkForDealtBlackjack(playerHand, dealerHand);
     setIsPlayersTurn(true);
+    setIsGameStarted(true);
+    setIsFirstHand(false);
   };
 
   // This deals a card to a player if they choose to hit
@@ -86,6 +104,7 @@ const GameBoard = () => {
       setIsDealerCardHidden(false);
       setIsPlayersTurn(false);
       setWinner('Dealer');
+      setIsGameOver(true);
     }
   };
 
@@ -93,7 +112,11 @@ const GameBoard = () => {
   const handlePlayerStand = () => {
     setIsPlayersTurn(false);
     setIsDealerCardHidden(false);
-    handleDealerTurn();
+  };
+
+  const handlePlayerDouble = () => {
+    handlePlayerHit();
+    handlePlayerStand();
   };
 
   const handleDealerTurn = () => {
@@ -114,9 +137,32 @@ const GameBoard = () => {
     setWinner(winner);
   };
 
+  const checkForDealtBlackjack = (playerHand, dealerHand) => {
+    if (isBlackjack(playerHand) && !isBlackjack(dealerHand)) {
+      setIsDealerCardHidden(false);
+      setWinner('Player');
+      setIsGameOver(true);
+      return;
+    }
+    if (isBlackjack(dealerHand) && !isBlackjack(playerHand)) {
+      setIsDealerCardHidden(false);
+      setWinner('Dealer');
+      setIsGameOver(true);
+      return;
+    }
+    if (isBlackjack(playerHand) && isBlackjack(dealerHand)) {
+      setIsDealerCardHidden(false);
+      setWinner('Push');
+      setIsGameOver(true);
+      return;
+    }
+  };
+
   return (
     <Box>
-      <p>{winner}</p>
+      {winner !== null && (
+        <p>{winner} wins!</p>
+      )}
       {!isDealerCardHidden && (
         <>
           <Text>Dealer Score: {dealerScore}</Text>
@@ -124,15 +170,20 @@ const GameBoard = () => {
       )}
       <Dealer hand={dealerHand} isDealerCardHidden={isDealerCardHidden}/>
       <Player hand={playerHand} />
-      <Text>Player Score: {playerScore}</Text>
+      {isGameStarted && (
+        <Text>Player Score: {playerScore}</Text>
+      )}
       <Deck deck={deck} />
       {isPlayersTurn && (
       <>
+        <Button onClick={handlePlayerDouble}>Double</Button>
         <Button onClick={handlePlayerHit}>Hit</Button>
         <Button onClick={handlePlayerStand}>Stand</Button>
       </>
     )}
-      <Button onClick={handleGameStart}>Start Game</Button>
+      {!isGameStarted && !gameOver && (
+        <Button onClick={handleGameStart}>Deal Cards</Button>
+      )}
     </Box>
   );
 };

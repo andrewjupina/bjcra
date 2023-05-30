@@ -51,3 +51,9 @@ function getCardValue(card) {
     return parseInt(card.rank);
   }
 }
+
+export function handleSplit(startingHand) {
+  let firstHand = [startingHand[0]];
+  let secondHand = [startingHand[1]];
+  return [firstHand, secondHand];
+}
